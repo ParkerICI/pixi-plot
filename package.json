@@ -1,0 +1,64 @@
+{
+  "name": "pixi-plot",
+  "version": "1.0.0",
+  "description": "Rob and Mats super rad Pixi Graph Plotter",
+  "keywords": [],
+  "homepage": "?---?",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:Goodboy-Digital/pixi-plot.git"
+  },
+  "license": "ISC",
+  "author": "Rob Schiemann and Mat Groves",
+  "sideEffects": false,
+  "main": "lib/index.js",
+  "module": "lib/index.js",
+  "types": "lib/index.js",
+  "files": [
+    "lib/"
+  ],
+  "scripts": {
+    "build": "run-s build:tsc build:glsl",
+    "build:glsl": "copyfiles -u 1 \"src/**/*.vert\" \"src/**/*.frag\" lib/",
+    "build:tsc": "tsc",
+    "lint": "eslint --ext .js --ext .ts ./ --ignore-path .gitignore --max-warnings 0",
+    "lint:fix": "npm run lint -- --fix",
+    "start": "DEBUG_MODE=1 npx jest  --watch",
+    "start-2": "run-p watch:tsc watch:glsl",
+    "test": "npx jest --silent",
+    "preversion": "npm run clean && npm run lint",
+    "postversion": "run-s build:tsc build:glsl",
+    "watch:all": "npm run clean && watch:tsc watch:glsl",
+    "watch:glsl": "nodemon --watch \"./src/*\" --exec \"npm run build:glsl\" -e vert,frag",
+    "watch:tsc": "tsc -w"
+  },
+  "pre-commit": [
+    "lint"
+  ],
+  "dependencies": {
+    "typed-signals": "^2.2.0"
+  },
+  "devDependencies": {
+    "@goodboydigital/eslint-config": "^1.7.3",
+    "@jest/globals": "^26.6.2",
+    "@types/fs-extra": "^9.0.3",
+    "@types/jest": "^26.0.15",
+    "@types/sinon": "^9.0.8",
+    "eslint": "^7.12.1",
+    "fs-extra": "^9.0.1",
+    "jest": "^26.6.3",
+    "jest-electron": "^0.1.11",
+    "jest-raw-loader": "^1.0.1",
+    "pixi.js": ">= 6.x",
+    "pre-commit": "^1.2.2",
+    "raw-loader": "^4.0.2",
+    "rimraf": "^3.0.2",
+    "sinon": "^9.2.1",
+    "ts-jest": "^26.4.3",
+    "ts-loader": "^8.0.8",
+    "typescript": "^4.0.5"
+  },
+  "peerDependencies": {
+    "pixi.js": ">= 6.x"
+  }
+}

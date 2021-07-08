@@ -1,5 +1,3 @@
-
-
 import { Renderer, Ticker } from 'pixi.js';
 import type { ScatterData } from '../src/ScatterPlot';
 import { ScatterPlot } from '../src/ScatterPlot';
@@ -26,7 +24,6 @@ describe('ScatterPlot', () =>
 {
     it('should render a scatter plot', () =>
     {
-        
         const renderer = new Renderer({ width: 400, height: 400 });
 
         document.body.appendChild(renderer.view);
@@ -45,6 +42,5 @@ describe('ScatterPlot', () =>
         {
             renderer.render(scatterPlot.view);
         });
-        
     });
 });

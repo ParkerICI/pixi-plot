@@ -1,63 +1,77 @@
-import type { InteractionEvent, IShape, Point, Renderer } from 'pixi.js';
+import type { InteractionEvent, Point, Renderer } from 'pixi.js';
 import { Container, Graphics, Rectangle } from 'pixi.js';
 import { Signal } from 'typed-signals';
 
+import  { RectangleSelection } from './RectangleSelection';
 import type { Range, Size } from './ScatterPlot';
 
 export class SelectionLayer
 {
     public view: Container = new Container();
-    public onShapeDrawn: Signal<(shape: IShape) => void> = new Signal();
+    public onShapeCreated: Signal<(rs: Rectangle, id: number) => void> = new Signal();
+    public onShapeUpdated: Signal<(rs: Rectangle, id: number) => void> = new Signal();
+    public onShapeRemoved: Signal<(id: number) => void> = new Signal();
 
-    private _isDown: boolean;
+    private _isCheckingForNewRect: boolean;
     private readonly _selectionView: Graphics;
-
     // TODO separate out to custom shape functions...
-    private readonly _rectangleSelection = new Rectangle(0, 0, 1, 1);
     private readonly _adjustedRectangleSelection = new Rectangle(0, 0, 1, 1);
-    private _shapeDirty = true;
     private _range: Range;
     private _size: Size;
+    private readonly _renderSelections: RectangleSelection[] = [];
+    private readonly _addNeyLayer: Graphics;
+    private _startPosition: any;
 
     constructor()
     {
         // draw shapes!
-        this.view.interactive = true;
 
         const hitArea = new Rectangle(0, 0, 400, 400);
 
-        this.view.hitArea = hitArea;
+        this._addNeyLayer = new Graphics()
+            .beginFill(0xFFCC00, 0)
+            .drawRect(hitArea.x, hitArea.y, hitArea.width, hitArea.height);
+        this._addNeyLayer.hitArea = hitArea;
+        this._addNeyLayer.interactive = true;
 
-        // const debug = new Graphics()
-        //     .beginFill(0xFFCC00, 0.2)
-        //     .drawRect(hitArea.x, hitArea.y, hitArea.width, hitArea.height);
+        this.view.addChild(this._addNeyLayer);
 
-        // this.view.addChild(debug);
-
-        this.view.on('pointerdown', (e: InteractionEvent) =>
+        // @ts-ignore
+        this._addNeyLayer.on('pointerdown', (e: InteractionEvent) =>
         {
-            this._isDown = true;
-            this._beginShape(this.view.toLocal(e.data.global));
+            this._isCheckingForNewRect = true;
+            this._startPosition = this.view.toLocal(e.data.global);
         });
 
-        this.view.on('pointermove', (e: InteractionEvent) =>
+        // @ts-ignore
+        this._addNeyLayer.on('pointermove', (e: InteractionEvent) =>
         {
-            if (this._isDown)
+            if (this._isCheckingForNewRect)
             {
-                this._updateShape(this.view.toLocal(e.data.global));
+                const local = this.view.toLocal(e.data.global);
+
+                const dx = local.x - this._startPosition.x;
+                const dy = local.y - this._startPosition.y;
+                const dist = Math.sqrt((dx * dx) + (dy * dy));
+
+                if (dist > 5)
+                {
+                    this._isCheckingForNewRect = false;
+                    this._beginShape(local);
+                }
             }
         });
 
-        this.view.on('pointerupoutside', () =>
+        // @ts-ignore
+        this._addNeyLayer.on('pointerup', () =>
         {
-            this._isDown = false;
-            this._endShape();
+            this._isCheckingForNewRect = false;
         });
 
-        this.view.on('pointerup', () =>
+        // @ts-ignore
+        this._addNeyLayer.on('pointerupoutside', () =>
         {
-            this._isDown = false;
-            this._endShape();
+            this._isCheckingForNewRect = false;
         });
 
         this._selectionView = new Graphics();
@@ -69,16 +83,13 @@ export class SelectionLayer
         // eslint-disable-next-line func-names
         this.view.render = (renderer: Renderer) =>
         {
-            if (this._shapeDirty)
+            this._renderSelections.forEach((rectangleSelection) =>
             {
-                this._shapeDirty = false;
+                rectangleSelection.update();
+            });
 
-                this._selectionView.clear();
+            // TODO just override render again?
 
-                this._selectionView.lineStyle(2, 0x000000, 1);
-                this._selectionView.beginFill(0, 0.5);
-                this._selectionView.drawShape(this._rectangleSelection);
-            }
             render(renderer);
         };
     }
@@ -93,58 +104,68 @@ export class SelectionLayer
         this._range = range;
     }
 
+    public removeSelection(id: number): void
+    {
+        const rs = this._renderSelections.find((rs) => rs.id === id);
+
+        if (rs)
+        {
+            rs.onUpdateStart.disconnectAll();
+            rs.onUpdateEnd.disconnectAll();
+            rs.onRemove.disconnectAll();
+
+            this.view.removeChild(rs.view);
+
+            // TODO add pooling!
+            this._renderSelections.splice(this._renderSelections.indexOf(rs), 1);
+            this.onShapeRemoved.emit(id);
+        }
+    }
+
     private _beginShape(position: Point): void
     {
-        const s = this._rectangleSelection;
+        const rs = new RectangleSelection();
 
-        s.x = position.x;
-        s.y = position.y;
-        s.width = 0;
-        s.height = 0;
-        this._shapeDirty = true;
-    }
+        this._renderSelections.push(rs);
 
-    private _updateShape(position: Point)
-    {
-        const s = this._rectangleSelection;
+        this.view.addChild(rs.view);
 
-        s.width = position.x - s.x;
-        s.height = position.y - s.y;
+        rs.init(position);
 
-        this._shapeDirty = true;
-    }
-
-    private _validateShape(): boolean
-    {
-        if (this._rectangleSelection.width === 0 || this._rectangleSelection.height === 0)
+        rs.onUpdateStart.connect((rs) =>
         {
-            return false;
-        }
+            this.view.addChild(rs.view);
+        });
 
-        return true;
-    }
-
-    private _endShape()
-    {
-        this._shapeDirty = true;
-
-        if (this._validateShape())
+        rs.onUpdateEnd.connect(() =>
         {
             const sx = (this._range.x / this._size.width);
             const sy = (this._range.y / this._size.height);
             // adjust to range / size..
 
-            const {
-                _adjustedRectangleSelection: ar,
-                _rectangleSelection: rs,
-            } = this;
+            const ar = this._adjustedRectangleSelection;
+            const shape = rs.shape;
 
-            ar.x = rs.x * sx;
-            ar.y = rs.y * sy;
-            ar.width = rs.width * sx;
-            ar.height = rs.height * sy;
+            ar.x = shape.x * sx;
+            ar.y = shape.y * sy;
+            ar.width = shape.width * sx;
+            ar.height = shape.height * sy;
 
-            this.onShapeDrawn.emit(ar);
-        }
+            // do stuff!
+            if (rs.firstRun)
+            {
+                rs.firstRun = false;
+                this.onShapeCreated.emit(ar, rs.id);
+            }
+            else
+            {
+                this.onShapeUpdated.emit(ar, rs.id);
+            }
+        });
+
+        rs.onRemove.connect(() =>
+        {
+            this.removeSelection(rs.id);
+        });
     }
 }

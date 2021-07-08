@@ -1,4 +1,3 @@
-import type { IShape, Rectangle } from 'pixi.js';
 import { Container, Graphics } from 'pixi.js';
 
 import { gateRectangle } from './gateRectangle';
@@ -30,19 +29,28 @@ export interface ScatterPlotOptions
     backgroundColor?: number;
 }
 
+export interface Selection
+{
+    data: ScatterData;
+    id: number;
+    view: ScatterMesh;
+}
+
 export class ScatterPlot
 {
     public view: Container = new Container();
-
-    private _dirty: boolean;
+    public scatterViewContainer: Container = new Container();
 
     private readonly _background: Graphics = new Graphics();
     private _data: ScatterData;
 
     private readonly _scatterMesh: ScatterMesh;
+    // private readonly _scatterMeshes: ScatterMesh[] = [];
     private readonly _selectionLayer: SelectionLayer;
     private readonly _size: Size;
     private readonly _range: Range;
+
+    private readonly _selections: Record<number, Selection> = {};
 
     constructor({
         size = { width: 400, height: 400 },
@@ -65,15 +73,46 @@ export class ScatterPlot
         this._selectionLayer.setRange(this._range);
         this._selectionLayer.setSize(this._size);
 
-        this.view.addChild(this._background, this._scatterMesh, this._selectionLayer.view);
+        this.view.addChild(this._background, this.scatterViewContainer, this._selectionLayer.view);
 
-        this._selectionLayer.onShapeDrawn.connect((shape: IShape) =>
+        this.scatterViewContainer.addChild(this._scatterMesh);
+
+        this._selectionLayer.onShapeCreated.connect((r, id) =>
         {
-            // process..
+            const gatedData = gateRectangle(this._data, r);
 
-            const gatedData = gateRectangle(this._data, shape as Rectangle);
+            const view = new ScatterMesh();
 
-            this.set(gatedData);
+            view.color = 0xFFFFFF * Math.random();
+            view.setRange(this._range);
+            view.setSize(this._size);
+
+            this._selections[id] = {
+                data: gatedData,
+                id,
+                view,
+            };
+
+            this.scatterViewContainer.addChild(view);
+
+            view.update(gatedData.coords);
+        });
+
+        this._selectionLayer.onShapeUpdated.connect((r, id) =>
+        {
+            const gatedData = gateRectangle(this._data, r);
+
+            this._selections[id].data = gatedData;
+
+            this._selections[id].view.update(gatedData.coords);
+
+            this.scatterViewContainer.addChild(this._selections[id].view);
+        });
+
+        this._selectionLayer.onShapeRemoved.connect((id) =>
+        {
+            this.scatterViewContainer.removeChild(this._selections[id].view);
+            delete this._selections[id];
         });
     }
 
@@ -82,8 +121,6 @@ export class ScatterPlot
      **/
     public set(data: ScatterData): void
     {
-        this._dirty = true;
-
         // TODO - if users can be trusted.. should we clone??
         this._data = data;
 

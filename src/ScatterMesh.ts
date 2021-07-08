@@ -1,4 +1,5 @@
 import type { Renderer } from 'pixi.js';
+import { utils } from 'pixi.js';
 import { Point } from 'pixi.js';
 import { Buffer, Container, DRAW_MODES, Geometry, Shader, State } from 'pixi.js';
 
@@ -17,7 +18,6 @@ export class ScatterMesh extends Container
     public state: State;
 
     private readonly _geometry: Geometry;
-    private readonly _scatterBuffer: Buffer;
     private readonly _shader: Shader;
     private readonly _buffer: Buffer;
     private _range: Range;
@@ -49,19 +49,32 @@ export class ScatterMesh extends Container
             }
         `,
         `   
+            uniform vec3 uColor;
+
              void main(void)
             {
               
-                gl_FragColor = vec4(1., 0., 0., 1.);// * 0.4;
+                gl_FragColor = vec4(uColor, 1.);// * 0.4;
             }
 
         `,
         {
             uRange: new Point(1, 1),
+            uColor: [0, 0, 0],
         });
 
         this.state = State.for2d();
         this._range = { x: 100, y: 100 };
+    }
+
+    set color(value: number)
+    {
+        utils.hex2rgb(value, this._shader.uniforms.uColor);
+    }
+
+    get color(): number
+    {
+        return utils.rgb2hex(this._shader.uniforms.uColor);
     }
 
     public setRange(range: Range): void

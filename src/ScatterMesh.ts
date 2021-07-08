@@ -1,6 +1,5 @@
 import type { Renderer } from 'pixi.js';
 import { utils } from 'pixi.js';
-import { Point } from 'pixi.js';
 import { Buffer, Container, DRAW_MODES, Geometry, Shader, State } from 'pixi.js';
 
 import type { Range, Size } from './ScatterPlot';
@@ -36,16 +35,17 @@ export class ScatterMesh extends Container
 
             attribute vec2 aVertexPosition;
         
+            uniform mat3 translationMatrix;
             uniform mat3 projectionMatrix;
-            uniform vec2 uRange;
+            uniform vec4 uRange;
 
             void main(void)
             {
                 gl_PointSize = 1.0;
 
-                vec2 finalPosition = aVertexPosition * uRange;
-
-                gl_Position = vec4((projectionMatrix * vec3(finalPosition, 1.0)).xy, 0.0, 1.0);
+                vec2 finalPosition = aVertexPosition * uRange.zw;
+              //  finalPosition -= 200./0.5;//uRange.xy;
+                gl_Position = vec4((projectionMatrix * translationMatrix * vec3(finalPosition, 1.0)).xy, 0.0, 1.0);
             }
         `,
         `   
@@ -59,12 +59,12 @@ export class ScatterMesh extends Container
 
         `,
         {
-            uRange: new Point(1, 1),
+            uRange: [0, 0, 0, 0],
             uColor: [0, 0, 0],
         });
 
         this.state = State.for2d();
-        this._range = { x: 100, y: 100 };
+        this._range = { x: 100, y: 100, minX: 0, minY: 0 };
     }
 
     set color(value: number)
@@ -99,8 +99,15 @@ export class ScatterMesh extends Container
 
         // bind and sync uniforms..
         shader.uniforms.translationMatrix = this.transform.worldTransform.toArray(true);
-        shader.uniforms.uRange.x = this._size.width / this._range.x;
-        shader.uniforms.uRange.y = this._size.height / this._range.y;
+
+        const sx = this._range.x - this._range.minX;
+        const sy = this._range.y - this._range.minY;
+
+        shader.uniforms.uRange[0] = 0.5;// sx this._size.width / this._range.minX;
+        shader.uniforms.uRange[1] = 0.5;// this._size.height / this._range.minY;
+
+        shader.uniforms.uRange[2] = this._size.width / sx;
+        shader.uniforms.uRange[3] = this._size.height / sy;
 
         renderer.shader.bind(shader);
 

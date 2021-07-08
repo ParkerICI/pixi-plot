@@ -1,5 +1,6 @@
 import { Container, Graphics } from 'pixi.js';
 
+import { AxisView } from './AxisView';
 import { gateRectangle } from './gateRectangle';
 import { ScatterMesh } from './ScatterMesh';
 import { SelectionLayer } from './SelectionLayer';
@@ -14,6 +15,8 @@ export interface Range
 {
     x: number;
     y: number;
+    minX: number;
+    minY: number;
 }
 
 export interface Size
@@ -45,35 +48,49 @@ export class ScatterPlot
     private _data: ScatterData;
 
     private readonly _scatterMesh: ScatterMesh;
-    // private readonly _scatterMeshes: ScatterMesh[] = [];
     private readonly _selectionLayer: SelectionLayer;
     private readonly _size: Size;
     private readonly _range: Range;
 
     private readonly _selections: Record<number, Selection> = {};
+    private readonly _axis: AxisView;
+    private readonly _gridSize: Size;
 
     constructor({
         size = { width: 400, height: 400 },
-        range = { x: 1000, y: 1000 },
+        range = { x: 1000, y: 1000, minX: 0, minY: 0 },
         backgroundColor = 0x999999,
     }: ScatterPlotOptions)
     {
         this._size = size;
         this._range = range;
 
+        const padding = 40;
+
+        this._gridSize = { width: size.width - padding, height: size.height - padding };
+
         this._background.beginFill(backgroundColor)
             .drawRect(0, 0, size.width, size.height);
+
+        this._axis = new AxisView();
+        this._axis.setRange(range);
+        this._axis.setSize(size);
 
         this._scatterMesh = new ScatterMesh();
 
         this._scatterMesh.setRange(this._range);
-        this._scatterMesh.setSize(this._size);
+        this._scatterMesh.setSize(this._gridSize);
 
         this._selectionLayer = new SelectionLayer();
-        this._selectionLayer.setRange(this._range);
-        this._selectionLayer.setSize(this._size);
 
-        this.view.addChild(this._background, this.scatterViewContainer, this._selectionLayer.view);
+        this._selectionLayer.setRange(this._range);
+        this._selectionLayer.setSize(this._gridSize);
+
+        this.view.addChild(this._background, this.scatterViewContainer, this._selectionLayer.view, this._axis.view);
+
+        // this.view.x = padding;
+        this.scatterViewContainer.x = padding;
+        this._selectionLayer.view.x = padding;
 
         this.scatterViewContainer.addChild(this._scatterMesh);
 
@@ -85,7 +102,7 @@ export class ScatterPlot
 
             view.color = 0xFFFFFF * Math.random();
             view.setRange(this._range);
-            view.setSize(this._size);
+            view.setSize(this._gridSize);
 
             this._selections[id] = {
                 data: gatedData,
@@ -93,6 +110,7 @@ export class ScatterPlot
                 view,
             };
 
+            // flip cos y is up!
             this.scatterViewContainer.addChild(view);
 
             view.update(gatedData.coords);
@@ -101,12 +119,11 @@ export class ScatterPlot
         this._selectionLayer.onShapeUpdated.connect((r, id) =>
         {
             const gatedData = gateRectangle(this._data, r);
+            const selection =  this._selections[id];
 
-            this._selections[id].data = gatedData;
-
-            this._selections[id].view.update(gatedData.coords);
-
-            this.scatterViewContainer.addChild(this._selections[id].view);
+            selection.data = gatedData;
+            selection.view.update(gatedData.coords);
+            this.scatterViewContainer.addChild(selection.view);
         });
 
         this._selectionLayer.onShapeRemoved.connect((id) =>
@@ -124,12 +141,6 @@ export class ScatterPlot
         // TODO - if users can be trusted.. should we clone??
         this._data = data;
 
-        this.redraw();
-    }
-
-    public redraw(): void
-    {
-        // redraw the graph..
         this._scatterMesh.update(this._data.coords);
     }
 }

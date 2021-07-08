@@ -10,8 +10,8 @@ function generateRandomSet(size: number): ScatterData
     for (let i = 0; i < ids.length; i++)
     {
         ids[i] = i;
-        coords[i * 2] = Math.random() * 1000;
-        coords[(i * 2) + 1] = Math.random() * 1000;
+        coords[i * 2] = (Math.random() * 1000);
+        coords[(i * 2) + 1] = (Math.random() * 1000);
     }
 
     return {
@@ -30,7 +30,7 @@ describe('ScatterPlot', () =>
 
         const scatterPlot =  new ScatterPlot({
             size: { width: 400, height: 400 },
-            range: { x: 1000, y: 1000 },
+            range: { x: 1000, y: 1000, minX: 0, minY: 0 },
             backgroundColor: 0xCCCCCC,
         });
 

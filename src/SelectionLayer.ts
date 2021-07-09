@@ -139,17 +139,22 @@ export class SelectionLayer
 
         rs.onUpdateEnd.connect(() =>
         {
-            const sx = (this._range.x / this._size.width);
-            const sy = (this._range.y / this._size.height);
             // adjust to range / size..
+            const dx = this._range.maxX - this._range.minX;
+            const dy = this._range.maxY - this._range.minY;
 
+            const sx = (dx / this._size.width);
+            const sy = (dy / this._size.height);
             const ar = this._adjustedRectangleSelection;
             const shape = rs.shape;
 
-            ar.x = shape.x * sx;
-            ar.y = shape.y * sy;
-            ar.width = shape.width * sx;
-            ar.height = shape.height * sy;
+            const r = shape.width / this._size.width;
+            const r2 = shape.height / this._size.height;
+
+            ar.x = this._range.minX + (shape.x * sx);
+            ar.y = this._range.minY + (shape.y * sy);
+            ar.width = r * dx;
+            ar.height = r2 * dy;
 
             // do stuff!
             if (rs.firstRun)

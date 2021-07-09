@@ -19,6 +19,7 @@ export class ScatterMesh extends Container
     private readonly _geometry: Geometry;
     private readonly _shader: Shader;
     private readonly _buffer: Buffer;
+
     private _range: Range;
     private _size: Size;
 
@@ -44,7 +45,7 @@ export class ScatterMesh extends Container
                 gl_PointSize = 1.0;
 
                 vec2 finalPosition = aVertexPosition * uRange.zw;
-              //  finalPosition -= 200./0.5;//uRange.xy;
+                finalPosition -= uRange.xy;
                 gl_Position = vec4((projectionMatrix * translationMatrix * vec3(finalPosition, 1.0)).xy, 0.0, 1.0);
             }
         `,
@@ -64,7 +65,7 @@ export class ScatterMesh extends Container
         });
 
         this.state = State.for2d();
-        this._range = { x: 100, y: 100, minX: 0, minY: 0 };
+        this._range = { maxX: 100, maxY: 100, minX: 0, minY: 0 };
     }
 
     set color(value: number)
@@ -100,14 +101,14 @@ export class ScatterMesh extends Container
         // bind and sync uniforms..
         shader.uniforms.translationMatrix = this.transform.worldTransform.toArray(true);
 
-        const sx = this._range.x - this._range.minX;
-        const sy = this._range.y - this._range.minY;
+        const dx = this._range.maxX - this._range.minX;
+        const dy = this._range.maxY - this._range.minY;
 
-        shader.uniforms.uRange[0] = 0.5;// sx this._size.width / this._range.minX;
-        shader.uniforms.uRange[1] = 0.5;// this._size.height / this._range.minY;
+        shader.uniforms.uRange[0] = (this._range.minX / dx) * this._size.width;
+        shader.uniforms.uRange[1] = (this._range.minY / dy) * this._size.height;
 
-        shader.uniforms.uRange[2] = this._size.width / sx;
-        shader.uniforms.uRange[3] = this._size.height / sy;
+        shader.uniforms.uRange[2] = this._size.width / dx;
+        shader.uniforms.uRange[3] = this._size.height / dy;
 
         renderer.shader.bind(shader);
 

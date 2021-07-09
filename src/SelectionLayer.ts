@@ -14,6 +14,7 @@ export class SelectionLayer
 
     private _isCheckingForNewRect: boolean;
     private readonly _selectionView: Graphics;
+
     // TODO separate out to custom shape functions...
     private readonly _adjustedRectangleSelection = new Rectangle(0, 0, 1, 1);
     private _range: Range;
@@ -104,6 +105,7 @@ export class SelectionLayer
         this._range = range;
     }
 
+    //
     public removeSelection(id: number): void
     {
         const rs = this._renderSelections.find((rs) => rs.id === id);

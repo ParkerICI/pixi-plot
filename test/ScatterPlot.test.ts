@@ -33,7 +33,6 @@ describe('ScatterPlot', () =>
 
         const scatterPlot =  new ScatterPlot({
             size: { width: 400, height: 400 },
-            range: { maxX: 1000, maxY: 1000, minX: 0, minY: 0 },
             backgroundColor: 0xCCCCCC,
         });
 
